@@ -1,0 +1,63 @@
+# Docker Compose for local development and testing
+version: '3.8'
+
+services:
+  # Frontend React application
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Set API URL for development - change this to your backend URL
+        REACT_APP_API_BASE_URL: http://localhost:8003
+    ports:
+      - "3000:80"  # Map host port 3000 to container port 80
+    container_name: ndp-frontend
+    restart: unless-stopped
+    
+    # Environment variables (optional - can override build args)
+    environment:
+      - NODE_ENV=production
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add your backend service here for full stack development
+  # Uncomment the section below if you want to run backend in Docker too
+  
+  # backend:
+  #   image: rbardaji/ndp-ep-api:latest
+  #   ports:
+  #     - "8001:8000"
+  #   container_name: ndp-backend
+  #   restart: unless-stopped
+  #   environment:
+  #     - ORGANIZATION=Your Organization
+  #     - CKAN_LOCAL_ENABLED=False
+  #     - PRE_CKAN_ENABLED=True
+  #     - PRE_CKAN_URL=https://preckan.nationaldataplatform.org
+  #     - PRE_CKAN_API_KEY=your-api-key
+  #     - KAFKA_CONNECTION=False
+  #     - USE_JUPYTERLAB=False
+  
+  # database:
+  #   image: postgres:15-alpine
+  #   ports:
+  #     - "5432:5432"
+  #   container_name: ndp-database
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: ndp_db
+  #     POSTGRES_USER: ndp_user
+  #     POSTGRES_PASSWORD: ndp_password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+
+# Uncomment if using database
+# volumes:
+#   postgres_data:
