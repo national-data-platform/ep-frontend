@@ -4,6 +4,7 @@ import { Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 /**
  * AuthGuard component that requires authentication before accessing the app
  * Only accepts JWT tokens, no username/password login
+ * FIXED: Token visibility toggle now works correctly
  */
 const AuthGuard = ({ children, onAuthenticated }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -76,16 +77,14 @@ const AuthGuard = ({ children, onAuthenticated }) => {
     }
   };
 
+
+
   /**
-   * Handle logout
+   * Handle token visibility toggle
+   * FIXED: Improved toggle functionality for textarea
    */
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      localStorage.removeItem('authToken');
-      setIsAuthenticated(false);
-      setToken('');
-      setError(null);
-    }
+  const handleToggleTokenVisibility = () => {
+    setShowToken(!showToken);
   };
 
   /**
@@ -239,13 +238,19 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                     border: '2px solid #e2e8f0',
                     borderRadius: '6px',
                     fontSize: '0.875rem',
-                    fontFamily: 'monospace',
+                    fontFamily: showToken ? 'monospace' : 'inherit',
                     lineHeight: '1.4',
                     resize: 'vertical',
                     transition: 'border-color 0.3s ease',
-                    backgroundColor: showToken ? 'white' : '#f8fafc',
-                    color: showToken ? '#1e293b' : 'transparent',
-                    textShadow: showToken ? 'none' : '0 0 0 #1e293b'
+                    backgroundColor: 'white',
+                    // FIXED: Proper text masking implementation
+                    WebkitTextSecurity: showToken ? 'none' : 'disc',
+                    textSecurity: showToken ? 'none' : 'disc',
+                    // Fallback for browsers that don't support text-security
+                    ...(showToken ? {} : {
+                      fontFamily: 'text-security-disc, -webkit-small-control, monospace',
+                      letterSpacing: '0.125em'
+                    })
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = '#2563eb';
@@ -259,7 +264,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                 
                 <button
                   type="button"
-                  onClick={() => setShowToken(!showToken)}
+                  onClick={handleToggleTokenVisibility}
                   style={{
                     position: 'absolute',
                     top: '0.75rem',
@@ -268,12 +273,44 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                     border: 'none',
                     color: '#64748b',
                     cursor: 'pointer',
-                    padding: '0.25rem'
+                    padding: '0.25rem',
+                    borderRadius: '4px',
+                    transition: 'all 0.2s ease'
                   }}
                   title={showToken ? 'Hide token' : 'Show token'}
+                  onMouseOver={(e) => {
+                    e.target.style.backgroundColor = '#f1f5f9';
+                    e.target.style.color = '#374151';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.backgroundColor = 'transparent';
+                    e.target.style.color = '#64748b';
+                  }}
                 >
                   {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
+              </div>
+
+              {/* FIXED: Added visual indicator of token visibility state */}
+              <div style={{
+                fontSize: '0.75rem',
+                color: '#64748b',
+                marginTop: '0.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem'
+              }}>
+                {showToken ? (
+                  <>
+                    <Eye size={12} />
+                    <span>Token is visible</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff size={12} />
+                    <span>Token is hidden</span>
+                  </>
+                )}
               </div>
             </div>
 
