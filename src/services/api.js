@@ -12,19 +12,37 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add auth token (always required)
+// List of endpoints that don't require authentication
+const PUBLIC_ENDPOINTS = [
+  '/status/',
+  '/status/metrics',
+  '/status/kafka-details',
+  '/status/jupyter'
+];
+
+// Request interceptor to add auth token (with exceptions for public endpoints)
 apiClient.interceptors.request.use(
   (config) => {
-    const authToken = localStorage.getItem('authToken');
+    // Check if this is a public endpoint that doesn't need authentication
+    const isPublicEndpoint = PUBLIC_ENDPOINTS.some(endpoint => 
+      config.url.startsWith(endpoint)
+    );
     
-    if (authToken) {
-      config.headers.Authorization = `Bearer ${authToken}`;
+    if (!isPublicEndpoint) {
+      // Private endpoint - require authentication
+      const authToken = localStorage.getItem('authToken');
+      
+      if (authToken) {
+        config.headers.Authorization = `Bearer ${authToken}`;
+      } else {
+        // If no token is available for private endpoints, we should redirect to login
+        console.error('No authentication token found for private endpoint:', config.url);
+        window.location.reload(); // Force re-authentication
+        return Promise.reject(new Error('Authentication required'));
+      }
     } else {
-      // If no token is available, we should redirect to login
-      // This shouldn't happen with AuthGuard, but it's a safety net
-      console.error('No authentication token found');
-      window.location.reload(); // Force re-authentication
-      return Promise.reject(new Error('Authentication required'));
+      // Public endpoint - no authentication required
+      console.log('Making public API call to:', config.url);
     }
     
     return config;
@@ -38,8 +56,13 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired, invalid, or missing
+    // Only handle auth errors for private endpoints
+    const isPublicEndpoint = PUBLIC_ENDPOINTS.some(endpoint => 
+      error.config?.url?.startsWith(endpoint)
+    );
+    
+    if (!isPublicEndpoint && error.response?.status === 401) {
+      // Token expired, invalid, or missing for private endpoint
       console.error('Authentication failed:', error.response.data);
       
       // Remove invalid token
@@ -50,8 +73,8 @@ apiClient.interceptors.response.use(
       
       // Force page reload to trigger AuthGuard
       window.location.reload();
-    } else if (error.response?.status === 403) {
-      // User doesn't have permission
+    } else if (!isPublicEndpoint && error.response?.status === 403) {
+      // User doesn't have permission for private endpoint
       console.error('Access forbidden:', error.response.data);
       alert('You do not have permission to perform this action.');
     }
@@ -59,9 +82,6 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// Remove the auth API since we only use tokens
-// No need for login/logout functions
 
 // Organizations API
 export const organizationsAPI = {
@@ -163,7 +183,7 @@ export const resourcesAPI = {
     }),
 };
 
-// Status API
+// Status API - Now properly configured as public endpoints
 export const statusAPI = {
   getStatus: () => apiClient.get('/status/'),
   getMetrics: () => apiClient.get('/status/metrics'),

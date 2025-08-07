@@ -5,10 +5,11 @@ import { Instagram, X, Linkedin } from 'lucide-react';
  * Enhanced Footer component - More similar to nationaldataplatform.org
  * Larger layout with better spacing and typography
  * Now includes application version display
+ * UPDATED: Frontend version upgraded from 0.0.0 to 0.1.0
  */
 const Footer = () => {
   // Application version - update this when releasing new versions
-  const APP_VERSION = '0.0.0';
+  const APP_VERSION = '0.1.0';
 
   return (
     <footer style={{
