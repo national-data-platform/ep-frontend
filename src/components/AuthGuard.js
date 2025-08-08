@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, AlertCircle, Eye, EyeOff, CheckCircle, XCircle, Clock, Wifi, WifiOff } from 'lucide-react';
-import { statusAPI } from '../services/api';
+import { Lock, AlertCircle, Eye, EyeOff, CheckCircle, Wifi, WifiOff } from 'lucide-react';
+import { statusAPI, authAPI } from '../services/api';
 
 // Configuration constants - easily modifiable for future versions
 const FRONTEND_VERSION = '0.1.0';
@@ -30,9 +30,8 @@ const compareVersions = (version1, version2) => {
 
 /**
  * AuthGuard component that requires authentication before accessing the app
- * Now includes API version compatibility checking on startup
- * Only accepts JWT tokens, no username/password login
- * ENHANCED: Added API version verification and compatibility validation
+ * ENHANCED: Now uses /user/info endpoint for proper token validation
+ * Includes API version compatibility checking on startup
  */
 const AuthGuard = ({ children, onAuthenticated }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -40,6 +39,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
   const [error, setError] = useState(null);
   const [showToken, setShowToken] = useState(false);
   const [token, setToken] = useState('');
+  const [validatingToken, setValidatingToken] = useState(false);
 
   // API Version Check States
   const [apiStatus, setApiStatus] = useState({
@@ -121,41 +121,44 @@ const AuthGuard = ({ children, onAuthenticated }) => {
   }, []);
 
   /**
-   * Check if user is already authenticated after API version check
+   * ENHANCED: Check if user is already authenticated using proper token validation
    */
   useEffect(() => {
     // Only check auth after API version check is complete
     if (apiStatus.checking) return;
     
-    const existingToken = localStorage.getItem('authToken');
-    
-    if (existingToken && existingToken.trim()) {
-      // Accept any non-empty token (like before)
-      if (isValidTokenFormat(existingToken)) {
-        setIsAuthenticated(true);
-        onAuthenticated && onAuthenticated();
-      } else {
-        // Invalid token format, remove it
-        localStorage.removeItem('authToken');
-        setError('Invalid token. Please enter a valid token.');
+    const checkExistingAuth = async () => {
+      const existingToken = localStorage.getItem('authToken');
+      
+      if (existingToken && existingToken.trim()) {
+        console.log('Found existing token, validating...');
+        
+        try {
+          // Validate token using /user/info endpoint
+          const userInfo = await authAPI.validateToken(existingToken);
+          console.log('Token validation successful:', userInfo);
+          
+          setIsAuthenticated(true);
+          onAuthenticated && onAuthenticated();
+        } catch (validationError) {
+          console.error('Token validation failed:', validationError);
+          
+          // Remove invalid token
+          localStorage.removeItem('authToken');
+          setError('Your session has expired. Please enter a valid token.');
+        }
       }
-    }
-    
-    setLoading(false);
-  }, [apiStatus.checking]); // FIXED: Removed onAuthenticated from dependencies
+      
+      setLoading(false);
+    };
+
+    checkExistingAuth();
+  }, [apiStatus.checking, onAuthenticated]);
 
   /**
-   * Basic token validation (accepts any non-empty token)
+   * ENHANCED: Handle token submission with proper validation
    */
-  const isValidTokenFormat = (token) => {
-    // Accept any non-empty token (like the original implementation)
-    return token && token.trim().length > 0;
-  };
-
-  /**
-   * Handle token submission
-   */
-  const handleTokenSubmit = (e) => {
+  const handleTokenSubmit = async (e) => {
     e.preventDefault();
     
     if (!token.trim()) {
@@ -163,23 +166,40 @@ const AuthGuard = ({ children, onAuthenticated }) => {
       return;
     }
 
-    // Accept any non-empty token (no strict JWT validation)
-    if (!isValidTokenFormat(token.trim())) {
-      setError('Token cannot be empty. Please enter a valid token.');
-      return;
-    }
-
     try {
-      // Save token to localStorage
-      localStorage.setItem('authToken', token.trim());
-      
       setError(null);
+      setValidatingToken(true);
+
+      console.log('Validating token with /user/info endpoint...');
+      
+      // Use the enhanced token validation
+      const userInfo = await authAPI.setAndValidateToken(token.trim());
+      
+      console.log('Token validation successful, user info:', userInfo);
+      
       setIsAuthenticated(true);
       onAuthenticated && onAuthenticated();
       
+      // Reset form
+      setToken('');
+      
     } catch (err) {
-      console.error('Token authentication error:', err);
-      setError('Failed to authenticate. Please check your token.');
+      console.error('Token validation error:', err);
+      
+      // Enhanced error handling with specific messages
+      let errorMessage = err.message || 'Token validation failed';
+      
+      if (errorMessage.includes('Invalid token')) {
+        setError('Invalid token. Please check your token and try again.');
+      } else if (errorMessage.includes('Cannot connect to API')) {
+        setError('Cannot connect to API server. Please check your connection.');
+      } else if (errorMessage.includes('Insufficient permissions')) {
+        setError('Token does not have sufficient permissions.');
+      } else {
+        setError('Authentication failed: ' + errorMessage);
+      }
+    } finally {
+      setValidatingToken(false);
     }
   };
 
@@ -210,7 +230,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
           borderWidth: '4px'
         }}></div>
         <p style={{ color: '#64748b', fontSize: '1.1rem' }}>
-          {apiStatus.checking ? 'Checking API compatibility...' : 'Checking authentication...'}
+          {apiStatus.checking ? 'Checking API compatibility...' : 'Validating authentication...'}
         </p>
         
         {/* Show API status during check */}
@@ -459,7 +479,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                   onChange={(e) => setToken(e.target.value)}
                   placeholder="testing_password"
                   required
-                  disabled={!apiStatus.connected} // Disable if API not connected
+                  disabled={!apiStatus.connected || validatingToken}
                   style={{
                     width: '100%',
                     minHeight: '80px',
@@ -472,8 +492,8 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                     lineHeight: '1.4',
                     resize: 'vertical',
                     transition: 'border-color 0.3s ease',
-                    backgroundColor: !apiStatus.connected ? '#f3f4f6' : 'white',
-                    opacity: !apiStatus.connected ? 0.6 : 1,
+                    backgroundColor: (!apiStatus.connected || validatingToken) ? '#f3f4f6' : 'white',
+                    opacity: (!apiStatus.connected || validatingToken) ? 0.6 : 1,
                     // Text masking implementation
                     WebkitTextSecurity: showToken ? 'none' : 'disc',
                     textSecurity: showToken ? 'none' : 'disc',
@@ -484,7 +504,7 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                     })
                   }}
                   onFocus={(e) => {
-                    if (apiStatus.connected) {
+                    if (apiStatus.connected && !validatingToken) {
                       e.target.style.borderColor = '#2563eb';
                       e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
                     }
@@ -498,29 +518,29 @@ const AuthGuard = ({ children, onAuthenticated }) => {
                 <button
                   type="button"
                   onClick={handleToggleTokenVisibility}
-                  disabled={!apiStatus.connected}
+                  disabled={!apiStatus.connected || validatingToken}
                   style={{
                     position: 'absolute',
                     top: '0.75rem',
                     right: '0.75rem',
                     background: 'none',
                     border: 'none',
-                    color: !apiStatus.connected ? '#9ca3af' : '#64748b',
-                    cursor: !apiStatus.connected ? 'not-allowed' : 'pointer',
+                    color: (!apiStatus.connected || validatingToken) ? '#9ca3af' : '#64748b',
+                    cursor: (!apiStatus.connected || validatingToken) ? 'not-allowed' : 'pointer',
                     padding: '0.25rem',
                     borderRadius: '4px',
                     transition: 'all 0.2s ease',
-                    opacity: !apiStatus.connected ? 0.5 : 1
+                    opacity: (!apiStatus.connected || validatingToken) ? 0.5 : 1
                   }}
                   title={showToken ? 'Hide token' : 'Show token'}
                   onMouseOver={(e) => {
-                    if (apiStatus.connected) {
+                    if (apiStatus.connected && !validatingToken) {
                       e.target.style.backgroundColor = '#f1f5f9';
                       e.target.style.color = '#374151';
                     }
                   }}
                   onMouseOut={(e) => {
-                    if (apiStatus.connected) {
+                    if (apiStatus.connected && !validatingToken) {
                       e.target.style.backgroundColor = 'transparent';
                       e.target.style.color = '#64748b';
                     }
@@ -555,39 +575,53 @@ const AuthGuard = ({ children, onAuthenticated }) => {
 
             <button
               type="submit"
-              disabled={!apiStatus.connected}
+              disabled={!apiStatus.connected || validatingToken}
               style={{
                 width: '100%',
                 padding: '0.75rem 1rem',
-                backgroundColor: !apiStatus.connected ? '#9ca3af' : '#2563eb',
+                backgroundColor: (!apiStatus.connected || validatingToken) ? '#9ca3af' : '#2563eb',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '0.9rem',
                 fontWeight: '600',
-                cursor: !apiStatus.connected ? 'not-allowed' : 'pointer',
+                cursor: (!apiStatus.connected || validatingToken) ? 'not-allowed' : 'pointer',
                 transition: 'all 0.3s ease',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.5rem',
-                opacity: !apiStatus.connected ? 0.6 : 1
+                opacity: (!apiStatus.connected || validatingToken) ? 0.6 : 1
               }}
               onMouseOver={(e) => {
-                if (apiStatus.connected) {
+                if (apiStatus.connected && !validatingToken) {
                   e.target.style.backgroundColor = '#1d4ed8';
                   e.target.style.transform = 'translateY(-1px)';
                 }
               }}
               onMouseOut={(e) => {
-                if (apiStatus.connected) {
+                if (apiStatus.connected && !validatingToken) {
                   e.target.style.backgroundColor = '#2563eb';
                   e.target.style.transform = 'translateY(0)';
                 }
               }}
             >
-              <Lock size={18} />
-              {!apiStatus.connected ? 'API Connection Required' : 'Authenticate'}
+              {validatingToken ? (
+                <>
+                  <div className="loading-spinner" style={{ width: '16px', height: '16px' }} />
+                  Validating...
+                </>
+              ) : !apiStatus.connected ? (
+                <>
+                  <Lock size={18} />
+                  API Connection Required
+                </>
+              ) : (
+                <>
+                  <Lock size={18} />
+                  Authenticate
+                </>
+              )}
             </button>
           </form>
 

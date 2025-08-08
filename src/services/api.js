@@ -191,6 +191,80 @@ export const statusAPI = {
   getJupyterDetails: () => apiClient.get('/status/jupyter'),
 };
 
+// User API - NEW: Added for user information and token validation
+export const userAPI = {
+  /**
+   * Get current user information - requires valid Bearer token
+   * Used for both user info display and token validation
+   */
+  getUserInfo: () => apiClient.get('/user/info'),
+};
+
+// Authentication API - Enhanced with proper user info validation
+export const authAPI = {
+  /**
+   * Validate token by attempting to get user info
+   * Returns user data if token is valid, throws error if invalid
+   */
+  validateToken: async (token) => {
+    // Temporarily set the token for this request
+    const tempClient = axios.create({
+      baseURL: BASE_URL,
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+    });
+    
+    // Try to get user info with the provided token
+    const response = await tempClient.get('/user/info');
+    return response.data;
+  },
+  
+  /**
+   * Set authentication token and validate it
+   * @param {string} token - The Bearer token to set and validate
+   * @returns {Promise<Object>} User information if token is valid
+   */
+  setAndValidateToken: async (token) => {
+    if (!token || typeof token !== 'string' || token.trim() === '') {
+      throw new Error('Invalid token: Token cannot be empty');
+    }
+    
+    try {
+      // Validate the token by getting user info
+      const userInfo = await authAPI.validateToken(token.trim());
+      
+      // If validation succeeds, store the token
+      localStorage.setItem('authToken', token.trim());
+      
+      return userInfo;
+    } catch (error) {
+      // Remove any existing invalid token
+      localStorage.removeItem('authToken');
+      
+      // Re-throw with user-friendly message
+      if (error.response?.status === 401) {
+        throw new Error('Invalid token: Authentication failed');
+      } else if (error.response?.status === 403) {
+        throw new Error('Invalid token: Insufficient permissions');
+      } else if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
+        throw new Error('Cannot connect to API server');
+      } else {
+        throw new Error('Token validation failed: ' + (error.message || 'Unknown error'));
+      }
+    }
+  },
+  
+  /**
+   * Clear authentication data
+   */
+  logout: () => {
+    localStorage.removeItem('authToken');
+  }
+};
+
 // Redirect API
 export const redirectAPI = {
   redirectToService: (serviceName) => 
@@ -211,6 +285,11 @@ export const getAuthToken = () => {
 // Utility function to clear authentication
 export const clearAuth = () => {
   localStorage.removeItem('authToken');
+};
+
+// Utility function to get API base URL for documentation links
+export const getApiBaseUrl = () => {
+  return BASE_URL;
 };
 
 export default apiClient;
