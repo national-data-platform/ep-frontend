@@ -5,23 +5,27 @@ import {
   Server, 
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  Info
 } from 'lucide-react';
 import { statusAPI } from '../services/api';
 
 /**
  * Dashboard component showing system overview and status
- * Displays key metrics, system health, and quick actions
+ * Displays key metrics, system health, API version, and quick actions
+ * ENHANCED: Added API version display for system monitoring
  */
 const Dashboard = () => {
   const [systemStatus, setSystemStatus] = useState(null);
   const [metrics, setMetrics] = useState(null);
   const [kafkaDetails, setKafkaDetails] = useState(null);
+  const [apiVersion, setApiVersion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   /**
    * Fetch system status and metrics on component mount
+   * ENHANCED: Added API version fetching
    */
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -36,9 +40,14 @@ const Dashboard = () => {
             statusAPI.getKafkaDetails()
           ]);
 
-        // Handle status response
+        // Handle status response and extract API version
         if (statusResponse.status === 'fulfilled') {
-          setSystemStatus(statusResponse.value.data);
+          const statusData = statusResponse.value.data;
+          setSystemStatus(statusData);
+          
+          // Extract API version from status response
+          const version = statusData?.version || statusData?.api_version || 'Unknown';
+          setApiVersion(version);
         }
 
         // Handle metrics response
@@ -105,12 +114,37 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
-      {/* Page Header */}
+      {/* Page Header with API Version */}
       <div className="page-header">
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">
-          System overview and status - Last updated: {new Date().toLocaleTimeString()}
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div>
+            <h1 className="page-title">Dashboard</h1>
+            <p className="page-subtitle">
+              System overview and status - Last updated: {new Date().toLocaleTimeString()}
+            </p>
+          </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.875rem',
+            color: '#64748b',
+            backgroundColor: '#f8fafc',
+            padding: '0.5rem 0.75rem',
+            borderRadius: '6px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <Info size={14} />
+            <span>API:</span>
+            <span style={{
+              fontFamily: 'monospace',
+              fontWeight: '600',
+              color: '#374151'
+            }}>
+              {apiVersion || 'Unknown'}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* System Status Cards */}
