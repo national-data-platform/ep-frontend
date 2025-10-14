@@ -45,9 +45,9 @@ const AuthStatus = ({ onLoginClick }) => {
       authAPI.logout();
       setIsAuthenticated(false);
       setTokenPreview('');
-      
-      // Refresh the page to clear any cached data
-      window.location.reload();
+
+      // Redirect to root path to clear any cached data
+      window.location.href = '/';
     }
   };
 

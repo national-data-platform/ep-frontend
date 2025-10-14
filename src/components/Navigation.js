@@ -11,7 +11,8 @@ import {
   FileText,
   LogOut,
   FolderOpen,
-  ChevronDown
+  ChevronDown,
+  HardDrive
 } from 'lucide-react';
 
 /**
@@ -79,7 +80,7 @@ const Navigation = () => {
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
       localStorage.removeItem('authToken');
-      window.location.reload();
+      window.location.href = '/';
     }
   };
 
@@ -342,7 +343,8 @@ const Navigation = () => {
                         textDecoration: 'none',
                         fontSize: '0.9rem',
                         fontWeight: '500', // Always same weight
-                        backgroundColor: 'white'
+                        backgroundColor: 'white',
+                        borderBottom: '1px solid #f3f4f6'
                       }}
                       onMouseOver={(e) => {
                         e.target.style.backgroundColor = '#f9fafb';
@@ -357,6 +359,34 @@ const Navigation = () => {
                     >
                       <Database size={18} />
                       <span>S3 Resources</span>
+                    </Link>
+
+                    <Link
+                      to="/s3-management"
+                      style={{
+                        display: 'flex',
+                        alignItems:'center',
+                        gap: '0.75rem',
+                        padding: '1rem 1.25rem',
+                        color: '#374151', // Always same color
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        fontWeight: '500', // Always same weight
+                        backgroundColor: 'white'
+                      }}
+                      onMouseOver={(e) => {
+                        e.target.style.backgroundColor = '#f9fafb';
+                        e.target.style.color = '#2563eb';
+                        e.target.style.fontWeight = '600';
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.backgroundColor = 'white';
+                        e.target.style.color = '#374151';
+                        e.target.style.fontWeight = '500';
+                      }}
+                    >
+                      <HardDrive size={18} />
+                      <span>S3 Management</span>
                     </Link>
                   </div>
                 )}
