@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Activity, 
-  Database, 
-  Server, 
+import {
+  Activity,
+  Database,
+  Server,
   AlertCircle,
   CheckCircle,
   Info,
@@ -13,7 +13,8 @@ import {
   Wifi,
   ExternalLink,
   Users,
-  Shield
+  Shield,
+  BookOpen
 } from 'lucide-react';
 import { statusAPI, userAPI, getApiBaseUrl } from '../services/api';
 
@@ -479,6 +480,58 @@ const Dashboard = () => {
                 <div className="status-indicator status-warning">
                   <Server size={16} />
                   Checking...
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* JupyterLab Status Card */}
+        <div className="card">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <BookOpen size={24} style={{ color: '#f97316' }} />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', color: '#1e293b' }}>
+                  JupyterLab Status
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+                  Interactive Computing
+                </p>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              {systemStatus?.jupyterlab_enabled ? (
+                <div>
+                  <div className="status-indicator status-success" style={{ marginBottom: '0.25rem' }}>
+                    <CheckCircle size={16} />
+                    Enabled
+                  </div>
+                  {systemStatus?.jupyterlab_url && (
+                    <a
+                      href={systemStatus.jupyterlab_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        gap: '0.25rem',
+                        fontSize: '0.75rem',
+                        color: '#2563eb',
+                        textDecoration: 'none',
+                        marginTop: '0.25rem'
+                      }}
+                    >
+                      <ExternalLink size={10} />
+                      Open
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <div className="status-indicator status-error">
+                  <AlertCircle size={16} />
+                  Disabled
                 </div>
               )}
             </div>

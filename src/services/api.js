@@ -6,7 +6,7 @@ const BASE_URL = process.env.REACT_APP_API_BASE_URL || '__NDP_EP_API_URL__' || '
 // Create axios instance with default configuration
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -124,6 +124,67 @@ export const s3API = {
     apiClient.put(`/s3/${resourceId}`, data, { params: { server } }),
 };
 
+// S3 Bucket Management API
+export const s3BucketAPI = {
+  list: () => 
+    apiClient.get('/s3/buckets/'),
+  
+  create: (data) => 
+    apiClient.post('/s3/buckets/', data),
+  
+  getInfo: (bucketName) => 
+    apiClient.get(`/s3/buckets/${bucketName}`),
+  
+  delete: (bucketName) => 
+    apiClient.delete(`/s3/buckets/${bucketName}`),
+};
+
+// S3 Object Management API
+export const s3ObjectAPI = {
+  upload: (bucketName, file, objectKey = null) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (objectKey) {
+      formData.append('object_key', objectKey);
+    }
+    
+    return apiClient.post(`/s3/objects/${bucketName}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  
+  list: (bucketName, prefix = null) => 
+    apiClient.get(`/s3/objects/${bucketName}`, { 
+      params: prefix ? { prefix } : {} 
+    }),
+  
+  download: (bucketName, objectKey) => 
+    apiClient.get(`/s3/objects/${bucketName}/${objectKey}`, {
+      responseType: 'blob',
+    }),
+  
+  delete: (bucketName, objectKey) => 
+    apiClient.delete(`/s3/objects/${bucketName}/${objectKey}`),
+  
+  getMetadata: (bucketName, objectKey) => 
+    apiClient.get(`/s3/objects/${bucketName}/${objectKey}/metadata`),
+};
+
+// S3 Presigned URL API
+export const s3PresignedAPI = {
+  getUploadUrl: (bucketName, objectKey, expiresIn = 3600) => 
+    apiClient.post(`/s3/objects/${bucketName}/${objectKey}/presigned-upload`, {
+      expires_in: expiresIn
+    }),
+  
+  getDownloadUrl: (bucketName, objectKey, expiresIn = 3600) => 
+    apiClient.post(`/s3/objects/${bucketName}/${objectKey}/presigned-download`, {
+      expires_in: expiresIn
+    }),
+};
+
 // Services API
 export const servicesAPI = {
   create: (data, server = 'local') => 
@@ -191,6 +252,79 @@ export const statusAPI = {
   getJupyterDetails: () => apiClient.get('/status/jupyter'),
 };
 
+// API Version Detection
+export const versionAPI = {
+  /**
+   * Get API version information
+   * Returns version details including major.minor.patch format
+   */
+  getVersion: async () => {
+    try {
+      const response = await apiClient.get('/status/');
+      const status = response.data;
+      
+      // Try to extract version from various possible fields
+      const version = status.api_version || status.version || status.app_version || '0.1.0';
+      
+      return {
+        version,
+        parsed: parseVersion(version),
+        raw: status
+      };
+    } catch (error) {
+      console.warn('Could not fetch API version, assuming 0.1.0:', error.message);
+      return {
+        version: '0.1.0',
+        parsed: { major: 0, minor: 1, patch: 0 },
+        raw: null
+      };
+    }
+  },
+
+  /**
+   * Check if API version supports S3 features
+   * S3 features require version 0.2.0 or higher
+   */
+  supportsS3Features: async () => {
+    try {
+      const versionInfo = await versionAPI.getVersion();
+      const { major, minor } = versionInfo.parsed;
+      
+      // S3 features available in 0.2.0+
+      return major > 0 || (major === 0 && minor >= 2);
+    } catch (error) {
+      console.warn('Could not check S3 feature support:', error.message);
+      return false;
+    }
+  }
+};
+
+/**
+ * Parse version string into major.minor.patch components
+ */
+const parseVersion = (versionString) => {
+  try {
+    // Handle various version formats: "0.2.0", "v0.2.0", "0.2.0-beta", etc.
+    const cleanVersion = versionString.replace(/^v/, '').split(/[-+]/)[0];
+    const parts = cleanVersion.split('.').map(num => parseInt(num, 10) || 0);
+    
+    return {
+      major: parts[0] || 0,
+      minor: parts[1] || 0,
+      patch: parts[2] || 0,
+      original: versionString
+    };
+  } catch (error) {
+    console.warn('Could not parse version string:', versionString, error.message);
+    return {
+      major: 0,
+      minor: 1,
+      patch: 0,
+      original: versionString
+    };
+  }
+};
+
 // User API - NEW: Added for user information and token validation
 export const userAPI = {
   /**
@@ -210,7 +344,7 @@ export const authAPI = {
     // Temporarily set the token for this request
     const tempClient = axios.create({
       baseURL: BASE_URL,
-      timeout: 10000,
+      timeout: 60000,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`

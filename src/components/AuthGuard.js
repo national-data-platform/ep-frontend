@@ -5,7 +5,7 @@ import { statusAPI, authAPI } from '../services/api';
 // Configuration constants - easily modifiable for future versions
 const FRONTEND_VERSION = '0.1.0';
 const MINIMUM_API_VERSION = '0.1.0';
-const API_VERSION_CHECK_TIMEOUT = 5000; // 5 seconds timeout for API check
+const API_VERSION_CHECK_TIMEOUT = 60000; // 60 seconds timeout for API check
 
 /**
  * Compare semantic versions (e.g., "1.2.3" vs "1.2.4")
