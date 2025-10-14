@@ -3,7 +3,7 @@ import { Lock, AlertCircle, Eye, EyeOff, CheckCircle, Wifi, WifiOff } from 'luci
 import { statusAPI, authAPI } from '../services/api';
 
 // Configuration constants - easily modifiable for future versions
-const FRONTEND_VERSION = '0.1.0';
+const FRONTEND_VERSION = '1.3.0-alpha';
 const MINIMUM_API_VERSION = '0.1.0';
 const API_VERSION_CHECK_TIMEOUT = 60000; // 60 seconds timeout for API check
 
