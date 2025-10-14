@@ -271,6 +271,14 @@ const Services = () => {
   };
 
   /**
+   * Get documentation URL from service extras
+   */
+  const getDocumentationUrl = (service) => {
+    const extras = service.extras || {};
+    return extras.documentation_url || null;
+  };
+
+  /**
    * Get health check status (placeholder for future implementation)
    */
   const getHealthStatus = (service) => {
@@ -534,6 +542,7 @@ const Services = () => {
                   <th>Service</th>
                   <th>Type</th>
                   <th>URL</th>
+                  <th>Documentation</th>
                   <th>Health Status</th>
                   <th>Resources</th>
                   <th>Actions</th>
@@ -543,8 +552,9 @@ const Services = () => {
                 {services.map((service, index) => {
                   const serviceTypeBadge = getServiceTypeBadge(service);
                   const serviceUrl = getMainServiceUrl(service);
+                  const documentationUrl = getDocumentationUrl(service);
                   const healthStatus = getHealthStatus(service);
-                  
+
                   return (
                     <tr key={`${service.id}-${index}`}>
                       <td>
@@ -587,7 +597,7 @@ const Services = () => {
                       </td>
                       <td>
                         {serviceUrl !== 'No URL' ? (
-                          <a 
+                          <a
                             href={serviceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -611,6 +621,35 @@ const Services = () => {
                         ) : (
                           <span style={{ color: '#94a3b8', fontSize: '0.875rem' }}>
                             No URL
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {documentationUrl ? (
+                          <a
+                            href={documentationUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              color: '#2563eb',
+                              textDecoration: 'none',
+                              fontSize: '0.875rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              maxWidth: '200px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}
+                            title={documentationUrl}
+                          >
+                            <FileText size={12} />
+                            View Docs
+                          </a>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontSize: '0.875rem' }}>
+                            No Docs
                           </span>
                         )}
                       </td>
