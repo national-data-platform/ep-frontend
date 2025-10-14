@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Settings, 
-  Plus, 
-  AlertCircle, 
+import {
+  Settings,
+  Plus,
+  AlertCircle,
   Save,
   X,
   Trash2,
   RefreshCw,
   ExternalLink,
   FileText,
-  Server
+  Server,
+  Edit3
 } from 'lucide-react';
 import { servicesAPI, searchAPI, resourcesAPI } from '../services/api';
 
@@ -24,6 +25,7 @@ const Services = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingService, setEditingService] = useState(null);
 
   const [selectedServer] = useState('local'); // Fixed to local for consistency
 
@@ -131,6 +133,7 @@ const Services = () => {
       documentation_url: ''
     });
     setExtrasJson('{}');
+    setEditingService(null);
     setShowCreateForm(false);
   };
 
@@ -162,7 +165,7 @@ const Services = () => {
    */
   const handleCreate = async (e) => {
     e.preventDefault();
-    
+
     try {
       setError(null);
       setSuccess(null);
@@ -170,21 +173,108 @@ const Services = () => {
 
       const requestData = prepareFormData();
       await servicesAPI.create(requestData, selectedServer);
-      
+
       setSuccess('Service registered successfully!');
       resetForm();
       fetchServices();
-      
+
     } catch (err) {
       console.error('Error creating service:', err);
-      setError('Failed to register service: ' + 
+      setError('Failed to register service: ' +
         (err.response?.data?.detail || err.message));
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Handle form submission for updating service
+   */
+  const handleUpdate = async (e) => {
+    e.preventDefault();
 
+    try {
+      setError(null);
+      setSuccess(null);
+      setLoading(true);
+
+      if (!editingService || !editingService.id) {
+        throw new Error('Invalid service ID for update operation');
+      }
+
+      const requestData = prepareFormData();
+
+      // Ensure all critical fields are present for update
+      const updateData = {
+        service_name: formData.service_name || editingService.name,
+        service_title: formData.service_title || editingService.title,
+        owner_org: formData.owner_org || editingService.owner_org,
+        service_url: formData.service_url || (editingService.resources?.[0]?.url),
+        ...(formData.service_type && { service_type: formData.service_type }),
+        ...(formData.notes && { notes: formData.notes }),
+        ...(formData.health_check_url && { health_check_url: formData.health_check_url }),
+        ...(formData.documentation_url && { documentation_url: formData.documentation_url }),
+        ...(requestData.extras && { extras: requestData.extras })
+      };
+
+      await servicesAPI.update(editingService.id, updateData, selectedServer);
+
+      setSuccess('Service updated successfully!');
+      resetForm();
+      fetchServices();
+
+    } catch (err) {
+      console.error('Error updating service:', err);
+      setError('Failed to update service: ' +
+        (err.response?.data?.detail || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Start editing a service
+   */
+  const startEditing = (service) => {
+    setEditingService(service);
+    const extras = service.extras || {};
+    const firstResource = service.resources && service.resources[0];
+
+    // Extract service-specific fields from extras
+    const serviceType = extras.service_type || '';
+    const healthCheckUrl = extras.health_check_url || '';
+    const documentationUrl = extras.documentation_url || '';
+
+    // Create clean extras without service-specific fields
+    const cleanExtras = { ...extras };
+    delete cleanExtras.service_type;
+    delete cleanExtras.health_check_url;
+    delete cleanExtras.documentation_url;
+
+    const editFormData = {
+      service_name: service.name || '',
+      service_title: service.title || '',
+      owner_org: service.owner_org || 'services',
+      service_url: firstResource?.url || '',
+      service_type: serviceType,
+      notes: service.notes || '',
+      extras: cleanExtras,
+      health_check_url: healthCheckUrl,
+      documentation_url: documentationUrl
+    };
+
+    setFormData(editFormData);
+
+    // Set JSON field with proper formatting
+    try {
+      setExtrasJson(JSON.stringify(cleanExtras, null, 2));
+    } catch (jsonError) {
+      console.error('Error stringifying JSON for edit form:', jsonError);
+      setExtrasJson('{}');
+    }
+
+    setShowCreateForm(true);
+  };
 
   /**
    * Handle service deletion
@@ -355,8 +445,17 @@ const Services = () => {
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">
-              <Plus size={20} />
-              Register New Service
+              {editingService ? (
+                <>
+                  <Edit3 size={20} />
+                  Edit Service
+                </>
+              ) : (
+                <>
+                  <Plus size={20} />
+                  Register New Service
+                </>
+              )}
             </h3>
             <button
               onClick={resetForm}
@@ -367,7 +466,7 @@ const Services = () => {
             </button>
           </div>
 
-          <form onSubmit={handleCreate}>
+          <form onSubmit={editingService ? handleUpdate : handleCreate}>
             {/* Basic Information */}
             <div className="grid grid-2">
               <div className="form-group">
@@ -494,20 +593,20 @@ const Services = () => {
             </div>
 
             {/* Submit Button */}
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="btn btn-primary"
               disabled={loading}
             >
               {loading ? (
                 <>
                   <div className="loading-spinner" />
-                  Registering...
+                  {editingService ? 'Updating...' : 'Registering...'}
                 </>
               ) : (
                 <>
                   <Save size={16} />
-                  Register Service
+                  {editingService ? 'Update Service' : 'Register Service'}
                 </>
               )}
             </button>
@@ -666,6 +765,15 @@ const Services = () => {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            onClick={() => startEditing(service)}
+                            className="btn btn-secondary"
+                            style={{ padding: '0.375rem 0.75rem' }}
+                            title="Edit service"
+                          >
+                            <Edit3 size={14} />
+                            <span style={{ fontSize: '0.75rem' }}>Edit</span>
+                          </button>
                           <button
                             onClick={() => handleDeleteService(service)}
                             className="btn btn-danger"

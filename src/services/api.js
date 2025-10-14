@@ -187,8 +187,11 @@ export const s3PresignedAPI = {
 
 // Services API
 export const servicesAPI = {
-  create: (data, server = 'local') => 
+  create: (data, server = 'local') =>
     apiClient.post('/services', data, { params: { server } }),
+
+  update: (serviceId, data, server = 'local') =>
+    apiClient.put(`/services/${serviceId}`, data, { params: { server } }),
 };
 
 // Search API
