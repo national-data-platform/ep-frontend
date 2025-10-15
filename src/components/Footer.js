@@ -9,7 +9,7 @@ import { Instagram, X, Linkedin } from 'lucide-react';
  */
 const Footer = () => {
   // Application version - update this when releasing new versions
-  const APP_VERSION = '0.1.0';
+  const APP_VERSION = '1.3.0-alpha.2';
 
   return (
     <footer style={{

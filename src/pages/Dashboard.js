@@ -132,18 +132,32 @@ const Dashboard = () => {
 
   /**
    * Get user roles display
+   * Handles both string arrays and object arrays (with id, name, path properties)
    */
   const getUserRoles = () => {
     if (!userInfo || !userInfo.roles) return [];
-    return userInfo.roles;
+    return userInfo.roles.map(role => {
+      if (typeof role === 'string') return role;
+      if (typeof role === 'object' && role !== null) {
+        return role.name || role.id || JSON.stringify(role);
+      }
+      return String(role);
+    });
   };
 
   /**
    * Get user groups display
+   * Handles both string arrays and object arrays (with id, name, path properties)
    */
   const getUserGroups = () => {
     if (!userInfo || !userInfo.groups) return [];
-    return userInfo.groups;
+    return userInfo.groups.map(group => {
+      if (typeof group === 'string') return group;
+      if (typeof group === 'object' && group !== null) {
+        return group.name || group.id || JSON.stringify(group);
+      }
+      return String(group);
+    });
   };
 
   /**
