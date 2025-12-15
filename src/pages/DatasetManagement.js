@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Database, 
-  Plus, 
-  AlertCircle, 
+import {
+  Database,
+  Plus,
+  AlertCircle,
   Edit3,
   Save,
   X,
   FileText,
-  Trash2
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Link
 } from 'lucide-react';
-import { organizationsAPI, searchAPI, generalDatasetAPI, datasetAPI } from '../services/api';
+import { organizationsAPI, searchAPI, generalDatasetAPI, datasetAPI, resourcesAPI } from '../services/api';
 
 /**
  * Dataset Management component for creating and managing general datasets
@@ -24,6 +28,14 @@ const DatasetManagement = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingDataset, setEditingDataset] = useState(null);
   const [selectedServer] = useState('local'); // Fixed to local for consistency
+  const [expandedDatasets, setExpandedDatasets] = useState({});
+  const [editingResource, setEditingResource] = useState(null);
+  const [resourceFormData, setResourceFormData] = useState({
+    name: '',
+    description: '',
+    url: '',
+    format: ''
+  });
 
   // Form state for creating/editing dataset
   const [formData, setFormData] = useState({
@@ -478,6 +490,104 @@ const DatasetManagement = () => {
     return { type: 'General', color: 'status-info' };
   };
 
+  /**
+   * Toggle dataset expansion to show/hide resources
+   */
+  const toggleDatasetExpansion = (datasetId) => {
+    setExpandedDatasets(prev => ({
+      ...prev,
+      [datasetId]: !prev[datasetId]
+    }));
+  };
+
+  /**
+   * Start editing a resource
+   */
+  const startEditingResource = (resource, datasetId) => {
+    setEditingResource({ ...resource, datasetId });
+    setResourceFormData({
+      name: resource.name || '',
+      description: resource.description || '',
+      url: resource.url || '',
+      format: resource.format || ''
+    });
+  };
+
+  /**
+   * Cancel resource editing
+   */
+  const cancelResourceEdit = () => {
+    setEditingResource(null);
+    setResourceFormData({
+      name: '',
+      description: '',
+      url: '',
+      format: ''
+    });
+  };
+
+  /**
+   * Handle resource form input changes
+   */
+  const handleResourceInputChange = (e) => {
+    const { name, value } = e.target;
+    setResourceFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  /**
+   * Save resource changes
+   */
+  const handleSaveResource = async () => {
+    if (!editingResource) return;
+
+    try {
+      setError(null);
+      setSuccess(null);
+
+      await resourcesAPI.patch(editingResource.id, resourceFormData, selectedServer);
+
+      setSuccess(`Resource "${resourceFormData.name}" updated successfully!`);
+      cancelResourceEdit();
+      fetchDatasets();
+
+    } catch (err) {
+      console.error('Error updating resource:', err);
+      setError('Failed to update resource: ' +
+        (err.response?.data?.detail || err.message));
+    }
+  };
+
+  /**
+   * Delete a resource
+   */
+  const handleDeleteResource = async (resource) => {
+    const displayName = resource.name || 'Unnamed Resource';
+
+    if (!window.confirm(
+      `Are you sure you want to delete resource "${displayName}"? This action cannot be undone.`
+    )) {
+      return;
+    }
+
+    try {
+      setError(null);
+      setSuccess(null);
+
+      await resourcesAPI.deleteById(resource.id, selectedServer);
+
+      setSuccess(`Resource "${displayName}" deleted successfully!`);
+      fetchDatasets();
+
+    } catch (err) {
+      console.error('Error deleting resource:', err);
+      setError('Failed to delete resource: ' +
+        (err.response?.data?.detail || err.message));
+    }
+  };
+
   return (
     <div className="dataset-management-page">
       {/* Page Header */}
@@ -705,82 +815,265 @@ const DatasetManagement = () => {
               <tbody>
                 {datasets.map((dataset, index) => {
                   const typeBadge = getDatasetTypeBadge(dataset);
-                  
+                  const isExpanded = expandedDatasets[dataset.id];
+                  const hasResources = dataset.resources && dataset.resources.length > 0;
+
                   return (
-                    <tr key={`${dataset.id}-${index}`}>
-                      <td>
-                        <div>
-                          <div style={{ fontWeight: '500', marginBottom: '0.25rem' }}>
-                            {dataset.title || dataset.name}
-                          </div>
-                          {dataset.title && dataset.name && dataset.title !== dataset.name && (
-                            <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
-                              {dataset.name}
+                    <React.Fragment key={`${dataset.id}-${index}`}>
+                      <tr style={{ cursor: hasResources ? 'pointer' : 'default' }}>
+                        <td onClick={() => hasResources && toggleDatasetExpansion(dataset.id)}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                            {hasResources && (
+                              <span style={{ marginTop: '0.125rem', color: '#64748b' }}>
+                                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                              </span>
+                            )}
+                            <div>
+                              <div style={{ fontWeight: '500', marginBottom: '0.25rem' }}>
+                                {dataset.title || dataset.name}
+                              </div>
+                              {dataset.title && dataset.name && dataset.title !== dataset.name && (
+                                <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                                  {dataset.name}
+                                </div>
+                              )}
+                              {dataset.notes && (
+                                <div style={{
+                                  fontSize: '0.875rem',
+                                  color: '#64748b',
+                                  marginTop: '0.25rem',
+                                  maxWidth: '300px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {dataset.notes}
+                                </div>
+                              )}
+                              <div style={{
+                                fontSize: '0.75rem',
+                                color: '#94a3b8',
+                                marginTop: '0.25rem',
+                                fontFamily: 'monospace'
+                              }}>
+                                ID: {dataset.id}
+                              </div>
                             </div>
-                          )}
-                          {dataset.notes && (
-                            <div style={{ 
-                              fontSize: '0.875rem', 
-                              color: '#64748b',
-                              marginTop: '0.25rem',
-                              maxWidth: '300px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {dataset.notes}
-                            </div>
-                          )}
-                          <div style={{ 
-                            fontSize: '0.75rem', 
-                            color: '#94a3b8',
-                            marginTop: '0.25rem',
-                            fontFamily: 'monospace'
-                          }}>
-                            ID: {dataset.id}
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="status-indicator status-info">
-                          General
-                        </span>
-                      </td>
-                      <td>
-                        <span className="status-indicator status-success">
-                          {dataset.owner_org || 'No organization'}
-                        </span>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <FileText size={14} />
-                          <span>{dataset.resources?.length || 0}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        </td>
+                        <td>
+                          <span className="status-indicator status-info">
+                            General
+                          </span>
+                        </td>
+                        <td>
+                          <span className="status-indicator status-success">
+                            {dataset.owner_org || 'No organization'}
+                          </span>
+                        </td>
+                        <td>
                           <button
-                            onClick={() => startEditing(dataset)}
-                            className="btn btn-secondary"
-                            style={{ padding: '0.375rem 0.75rem' }}
-                            title="Edit dataset"
+                            onClick={() => hasResources && toggleDatasetExpansion(dataset.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              background: 'none',
+                              border: 'none',
+                              cursor: hasResources ? 'pointer' : 'default',
+                              color: hasResources ? '#2563eb' : '#64748b',
+                              padding: '0.25rem 0.5rem',
+                              borderRadius: '4px'
+                            }}
+                            title={hasResources ? 'Click to expand resources' : 'No resources'}
                           >
-                            <Edit3 size={14} />
-                            <span style={{ fontSize: '0.75rem' }}>Edit</span>
+                            <FileText size={14} />
+                            <span>{dataset.resources?.length || 0}</span>
                           </button>
-                          
-                          <button
-                            onClick={() => handleDeleteDataset(dataset)}
-                            className="btn btn-danger"
-                            style={{ padding: '0.375rem 0.75rem' }}
-                            title="Delete dataset"
-                          >
-                            <Trash2 size={14} />
-                            <span style={{ fontSize: '0.75rem' }}>Delete</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                              onClick={() => startEditing(dataset)}
+                              className="btn btn-secondary"
+                              style={{ padding: '0.375rem 0.75rem' }}
+                              title="Edit dataset"
+                            >
+                              <Edit3 size={14} />
+                              <span style={{ fontSize: '0.75rem' }}>Edit</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteDataset(dataset)}
+                              className="btn btn-danger"
+                              style={{ padding: '0.375rem 0.75rem' }}
+                              title="Delete dataset"
+                            >
+                              <Trash2 size={14} />
+                              <span style={{ fontSize: '0.75rem' }}>Delete</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Resources Row */}
+                      {isExpanded && hasResources && (
+                        <tr>
+                          <td colSpan="5" style={{ backgroundColor: '#f8fafc', padding: '1rem' }}>
+                            <div style={{ marginLeft: '1.5rem' }}>
+                              <h4 style={{ marginBottom: '0.75rem', color: '#374151', fontSize: '0.9rem' }}>
+                                Resources ({dataset.resources.length})
+                              </h4>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                {dataset.resources.map((resource, resIndex) => (
+                                  <div
+                                    key={resource.id || resIndex}
+                                    style={{
+                                      backgroundColor: 'white',
+                                      border: '1px solid #e2e8f0',
+                                      borderRadius: '8px',
+                                      padding: '1rem'
+                                    }}
+                                  >
+                                    {editingResource && editingResource.id === resource.id ? (
+                                      /* Resource Edit Form */
+                                      <div>
+                                        <div className="grid grid-2" style={{ marginBottom: '0.75rem' }}>
+                                          <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                                            <label className="form-label" style={{ fontSize: '0.8rem' }}>Name</label>
+                                            <input
+                                              type="text"
+                                              name="name"
+                                              value={resourceFormData.name}
+                                              onChange={handleResourceInputChange}
+                                              className="form-input"
+                                              style={{ padding: '0.5rem' }}
+                                            />
+                                          </div>
+                                          <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                                            <label className="form-label" style={{ fontSize: '0.8rem' }}>Format</label>
+                                            <input
+                                              type="text"
+                                              name="format"
+                                              value={resourceFormData.format}
+                                              onChange={handleResourceInputChange}
+                                              className="form-input"
+                                              style={{ padding: '0.5rem' }}
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+                                          <label className="form-label" style={{ fontSize: '0.8rem' }}>URL</label>
+                                          <input
+                                            type="text"
+                                            name="url"
+                                            value={resourceFormData.url}
+                                            onChange={handleResourceInputChange}
+                                            className="form-input"
+                                            style={{ padding: '0.5rem' }}
+                                          />
+                                        </div>
+                                        <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                                          <label className="form-label" style={{ fontSize: '0.8rem' }}>Description</label>
+                                          <textarea
+                                            name="description"
+                                            value={resourceFormData.description}
+                                            onChange={handleResourceInputChange}
+                                            className="form-input"
+                                            style={{ padding: '0.5rem', minHeight: '60px' }}
+                                          />
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                          <button
+                                            onClick={handleSaveResource}
+                                            className="btn btn-primary"
+                                            style={{ padding: '0.375rem 0.75rem' }}
+                                          >
+                                            <Save size={14} />
+                                            <span style={{ fontSize: '0.75rem' }}>Save</span>
+                                          </button>
+                                          <button
+                                            onClick={cancelResourceEdit}
+                                            className="btn btn-secondary"
+                                            style={{ padding: '0.375rem 0.75rem' }}
+                                          >
+                                            <X size={14} />
+                                            <span style={{ fontSize: '0.75rem' }}>Cancel</span>
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      /* Resource Display */
+                                      <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                          <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                              <Link size={14} style={{ color: '#64748b' }} />
+                                              <span style={{ fontWeight: '500' }}>{resource.name || 'Unnamed Resource'}</span>
+                                              {resource.format && (
+                                                <span className="status-indicator status-info" style={{ fontSize: '0.7rem', padding: '0.125rem 0.375rem' }}>
+                                                  {resource.format}
+                                                </span>
+                                              )}
+                                            </div>
+                                            {resource.description && (
+                                              <p style={{ fontSize: '0.875rem', color: '#64748b', margin: '0.25rem 0' }}>
+                                                {resource.description}
+                                              </p>
+                                            )}
+                                            {resource.url && (
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                <a
+                                                  href={resource.url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  style={{
+                                                    fontSize: '0.8rem',
+                                                    color: '#2563eb',
+                                                    textDecoration: 'none',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.25rem'
+                                                  }}
+                                                >
+                                                  <ExternalLink size={12} />
+                                                  {resource.url.length > 60 ? resource.url.substring(0, 60) + '...' : resource.url}
+                                                </a>
+                                              </div>
+                                            )}
+                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.25rem', fontFamily: 'monospace' }}>
+                                              ID: {resource.id}
+                                            </div>
+                                          </div>
+                                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                              onClick={() => startEditingResource(resource, dataset.id)}
+                                              className="btn btn-secondary"
+                                              style={{ padding: '0.25rem 0.5rem' }}
+                                              title="Edit resource"
+                                            >
+                                              <Edit3 size={12} />
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteResource(resource)}
+                                              className="btn btn-danger"
+                                              style={{ padding: '0.25rem 0.5rem' }}
+                                              title="Delete resource"
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>

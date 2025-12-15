@@ -257,14 +257,20 @@ export const searchAPI = {
 
 // Resources management API
 export const resourcesAPI = {
-  deleteById: (resourceId, server = 'local') => 
-    apiClient.delete('/resource', { 
-      params: { resource_id: resourceId, server } 
+  getById: (resourceId) =>
+    apiClient.get(`/resources/${resourceId}`),
+
+  patch: (resourceId, data, server = 'local') =>
+    apiClient.patch(`/resources/${resourceId}`, data, { params: { server } }),
+
+  deleteById: (resourceId, server = 'local') =>
+    apiClient.delete('/resource', {
+      params: { resource_id: resourceId, server }
     }),
-  
-  deleteByName: (resourceName, server = 'local') => 
-    apiClient.delete(`/resource/${resourceName}`, { 
-      params: { server } 
+
+  deleteByName: (resourceName, server = 'local') =>
+    apiClient.delete(`/resource/${resourceName}`, {
+      params: { server }
     }),
 };
 
