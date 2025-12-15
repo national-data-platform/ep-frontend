@@ -9,33 +9,7 @@ import {
   FileText,
   Trash2
 } from 'lucide-react';
-import { organizationsAPI, searchAPI } from '../services/api';
-
-// Create a simple dataset API client since it's not in the existing api.js
-const datasetAPI = {
-  create: (data, server = 'local') => {
-    const apiClient = require('../services/api').default;
-    return apiClient.post('/dataset', data, { params: { server } });
-  },
-  
-  update: (datasetId, data, server = 'local') => {
-    const apiClient = require('../services/api').default;
-    return apiClient.put(`/dataset/${datasetId}`, data, { params: { server } });
-  },
-  
-  partialUpdate: (datasetId, data, server = 'local') => {
-    const apiClient = require('../services/api').default;
-    return apiClient.patch(`/dataset/${datasetId}`, data, { params: { server } });
-  },
-  
-  delete: (datasetId, server = 'local') => {
-    const apiClient = require('../services/api').default;
-    // Use the same endpoint as resources since datasets are resources in CKAN
-    return apiClient.delete('/resource', { 
-      params: { resource_id: datasetId, server } 
-    });
-  }
-};
+import { organizationsAPI, searchAPI, generalDatasetAPI, datasetAPI } from '../services/api';
 
 /**
  * Dataset Management component for creating and managing general datasets
@@ -223,8 +197,8 @@ const DatasetManagement = () => {
       setLoading(true);
 
       const requestData = prepareFormData();
-      await datasetAPI.create(requestData, selectedServer);
-      
+      await generalDatasetAPI.create(requestData, selectedServer);
+
       setSuccess('Dataset created successfully!');
       resetForm();
       fetchDatasets();
@@ -250,8 +224,8 @@ const DatasetManagement = () => {
       setLoading(true);
 
       const requestData = prepareFormData();
-      await datasetAPI.partialUpdate(editingDataset.id, requestData, selectedServer);
-      
+      await generalDatasetAPI.partialUpdate(editingDataset.id, requestData, selectedServer);
+
       setSuccess('Dataset updated successfully!');
       resetForm();
       fetchDatasets();
@@ -401,7 +375,7 @@ const DatasetManagement = () => {
       console.log('Dataset resources count:', datasetForPreCkan.resources.length);
       
       // Send to pre-ckan server
-      await datasetAPI.create(datasetForPreCkan, 'pre_ckan');
+      await generalDatasetAPI.create(datasetForPreCkan, 'pre_ckan');
       
       setSuccess(`Dataset "${displayName}" sent to Pre-CKAN server successfully! Note: Some fields were auto-filled to meet Pre-CKAN requirements.`);
       

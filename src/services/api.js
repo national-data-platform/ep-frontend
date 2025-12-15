@@ -194,6 +194,24 @@ export const servicesAPI = {
     apiClient.put(`/services/${serviceId}`, data, { params: { server } }),
 };
 
+// General Dataset API
+export const generalDatasetAPI = {
+  create: (data, server = 'local') =>
+    apiClient.post('/general-dataset', data, { params: { server } }),
+
+  update: (datasetId, data, server = 'local') =>
+    apiClient.put(`/general-dataset/${datasetId}`, data, { params: { server } }),
+
+  partialUpdate: (datasetId, data, server = 'local') =>
+    apiClient.patch(`/general-dataset/${datasetId}`, data, { params: { server } }),
+};
+
+// Dataset API (for deletion)
+export const datasetAPI = {
+  delete: (datasetId, server = 'local') =>
+    apiClient.delete(`/datasets/${datasetId}`, { params: { server } }),
+};
+
 // Search API
 export const searchAPI = {
   searchByTerms: (terms, keys = null, server = 'global') => {
