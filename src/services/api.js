@@ -187,6 +187,9 @@ export const s3PresignedAPI = {
 
 // Services API
 export const servicesAPI = {
+  getInfo: (serviceId) =>
+    apiClient.get(`/services/${serviceId}/info`),
+
   create: (data, server = 'local') =>
     apiClient.post('/services', data, { params: { server } }),
 
